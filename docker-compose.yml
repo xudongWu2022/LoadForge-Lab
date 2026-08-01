@@ -1,0 +1,21 @@
+services:
+  juice-shop:
+    image: bkimminich/juice-shop:v17.0.0
+    ports:
+      - "${TARGET_PORT:-3000}:3000"
+
+  k6:
+    image: grafana/k6:0.54.0
+    profiles: ["load-test"]
+    depends_on:
+      - juice-shop
+    environment:
+      BASE_URL: ${BASE_URL:-http://juice-shop:3000}
+    volumes:
+      - ./tests/k6:/scripts:ro
+      - ./reports:/reports
+    command:
+      - run
+      - --out
+      - json=/reports/latest.json
+      - /scripts/juice-shop.js
