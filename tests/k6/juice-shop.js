@@ -1,19 +1,33 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { check, fail, sleep } from 'k6';
 
-const baseUrl = __ENV.BASE_URL || 'http://juice-shop:3000';
+const baseUrl = (__ENV.BASE_URL || 'http://juice-shop:3000').replace(/\/$/, '');
+const profileName = __ENV.LOAD_PROFILE || 'moderate';
+
+const profiles = {
+  smoke: [
+    { duration: '10s', target: 2 },
+    { duration: '20s', target: 2 },
+    { duration: '10s', target: 0 },
+  ],
+  moderate: [
+    { duration: '20s', target: 10 },
+    { duration: '30s', target: 50 },
+    { duration: '60s', target: 25 },
+    { duration: '20s', target: 0 },
+  ],
+};
+
+if (!profiles[profileName]) {
+  throw new Error(`Unknown LOAD_PROFILE "${profileName}". Choose smoke or moderate.`);
+}
 
 export const options = {
   scenarios: {
     shoppers: {
       executor: 'ramping-vus',
       startVUs: 0,
-      stages: [
-        { duration: '20s', target: 10 },
-        { duration: '30s', target: 50 },
-        { duration: '60s', target: 25 },
-        { duration: '20s', target: 0 },
-      ],
+      stages: profiles[profileName],
       gracefulRampDown: '10s',
     },
   },
@@ -23,17 +37,29 @@ export const options = {
   },
 };
 
+export function setup() {
+  let lastStatus = 0;
+  for (let attempt = 1; attempt <= 12; attempt += 1) {
+    const response = http.get(`${baseUrl}/`, { tags: { action: 'preflight' } });
+    lastStatus = response.status;
+    if (lastStatus >= 200 && lastStatus < 400) {
+      return;
+    }
+    sleep(2);
+  }
+  fail(`Target preflight failed: GET ${baseUrl}/ returned ${lastStatus} after 24 seconds.`);
+}
+
 export default function () {
-  const userId = `vu-${__VU}`;
   const responses = http.batch([
-    ['GET', `${baseUrl}/api/Products`, null, { tags: { action: 'browse', user: userId } }],
-    ['GET', `${baseUrl}/rest/products/search?q=apple`, null, { tags: { action: 'search', user: userId } }],
+    ['GET', `${baseUrl}/api/Products`, null, { tags: { action: 'browse' } }],
+    ['GET', `${baseUrl}/rest/products/search?q=apple`, null, { tags: { action: 'search' } }],
   ]);
 
-  for (const response of responses) {
+  for (const [index, response] of responses.entries()) {
     check(response, {
       'response is successful': (result) => result.status >= 200 && result.status < 400,
-    });
+    }, { endpoint: index === 0 ? 'products' : 'search' });
   }
   sleep(Math.random() * 2 + 0.5);
 }
@@ -45,7 +71,7 @@ export function handleSummary(data) {
 ## Scenario
 
 - Target: ${baseUrl}
-- Profile: Juice Shop browsing/search
+- Profile: ${profileName} (Juice Shop browsing/search)
 
 ## Results
 
