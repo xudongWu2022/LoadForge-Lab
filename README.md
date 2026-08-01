@@ -24,7 +24,7 @@ Open the local target at `http://localhost:3000`. Test output is written to `rep
 
 ## Test profile
 
-The default scenario is deliberately modest:
+The default `moderate` scenario is deliberately modest:
 
 1. Warm up from 0 to 10 virtual users.
 2. Burst to 50 virtual users.
@@ -36,6 +36,25 @@ Increase these values only after observing CPU, memory, latency, and error rates
 ```powershell
 docker compose --profile load-test run --rm -e BASE_URL=http://your-authorized-target k6
 ```
+
+### Start with a smoke test
+
+Before every new target or environment, use the small `smoke` profile. It ramps to two VUs, holds briefly, and produces the same report artifacts:
+
+```powershell
+docker compose --profile load-test run --rm -e LOAD_PROFILE=smoke k6
+```
+
+The test waits up to 24 seconds for the target to pass its preflight check before it starts. If the target remains unavailable or returns an error, k6 stops instead of applying traffic. Supported values for `LOAD_PROFILE` are `smoke` and `moderate`; an unsupported value fails immediately.
+
+## Reports
+
+Each run replaces these local artifacts in `reports/`:
+
+- `latest.json` — raw k6 metrics for later analysis.
+- `latest-summary.md` — a concise run summary, including request volume, failure rate, and P95 latency.
+
+The test labels requests only by endpoint action (`browse`, `search`, or `preflight`), rather than by virtual-user ID. This keeps metrics aggregation usable at higher VU counts.
 
 ## Terminology
 
