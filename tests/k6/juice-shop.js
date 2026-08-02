@@ -1,8 +1,10 @@
 import http from 'k6/http';
 import { check, fail, sleep } from 'k6';
+import { Counter } from 'k6/metrics';
 
 const baseUrl = (__ENV.BASE_URL || 'http://juice-shop:3000').replace(/\/$/, '');
 const profileName = __ENV.LOAD_PROFILE || 'moderate';
+const endpointRequests = new Counter('endpoint_requests');
 
 const profiles = {
   smoke: [
@@ -36,6 +38,8 @@ export const options = {
     'http_req_failed{action:search}': ['rate<0.02'],
     'http_req_duration{action:browse}': ['p(95)<1000'],
     'http_req_duration{action:search}': ['p(95)<1000'],
+    'endpoint_requests{action:browse}': ['count>0'],
+    'endpoint_requests{action:search}': ['count>0'],
   },
 };
 
@@ -59,9 +63,11 @@ export default function () {
   ]);
 
   for (const [index, response] of responses.entries()) {
+    const action = index === 0 ? 'browse' : 'search';
+    endpointRequests.add(1, { action });
     check(response, {
       'response is successful': (result) => result.status >= 200 && result.status < 400,
-    }, { endpoint: index === 0 ? 'products' : 'search' });
+    }, { endpoint: action === 'browse' ? 'products' : 'search' });
   }
   sleep(Math.random() * 2 + 0.5);
 }
@@ -69,6 +75,18 @@ export default function () {
 export function handleSummary(data) {
   const metric = (name) => data.metrics[name]?.values || {};
   const endpointMetric = (name, action) => metric(`${name}{action:${action}}`);
+  const requestCount = (action) => metric(`endpoint_requests{action:${action}}`).count || 0;
+  const failureRate = (action) => endpointMetric('http_req_failed', action).rate || 0;
+  const browseRequests = requestCount('browse');
+  const searchRequests = requestCount('search');
+  const trafficRequests = browseRequests + searchRequests;
+  const trafficFailureRate = trafficRequests === 0
+    ? 0
+    : ((browseRequests * failureRate('browse')) + (searchRequests * failureRate('search'))) / trafficRequests;
+  const worstEndpointP95 = Math.max(
+    endpointMetric('http_req_duration', 'browse')['p(95)'] || 0,
+    endpointMetric('http_req_duration', 'search')['p(95)'] || 0,
+  );
   const markdown = `# LoadForge-Lab Report
 
 ## Scenario
@@ -80,9 +98,9 @@ export function handleSummary(data) {
 
 | Metric | Value |
 | --- | --- |
-| Requests | ${metric('http_reqs').count || 0} |
-| Failed request rate | ${((metric('http_req_failed').rate || 0) * 100).toFixed(2)}% |
-| P95 latency | ${(metric('http_req_duration')['p(95)'] || 0).toFixed(2)} ms |
+| Traffic requests | ${trafficRequests} |
+| Traffic failed request rate | ${(trafficFailureRate * 100).toFixed(2)}% |
+| Worst endpoint P95 latency | ${worstEndpointP95.toFixed(2)} ms |
 | Checks passed | ${metric('checks').passes || 0} |
 | Checks failed | ${metric('checks').fails || 0} |
 
@@ -90,8 +108,8 @@ export function handleSummary(data) {
 
 | Endpoint | Requests | Failed request rate | P95 latency |
 | --- | ---: | ---: | ---: |
-| Browse products | ${endpointMetric('http_reqs', 'browse').count || 0} | ${((endpointMetric('http_req_failed', 'browse').rate || 0) * 100).toFixed(2)}% | ${(endpointMetric('http_req_duration', 'browse')['p(95)'] || 0).toFixed(2)} ms |
-| Search products | ${endpointMetric('http_reqs', 'search').count || 0} | ${((endpointMetric('http_req_failed', 'search').rate || 0) * 100).toFixed(2)}% | ${(endpointMetric('http_req_duration', 'search')['p(95)'] || 0).toFixed(2)} ms |
+| Browse products | ${browseRequests} | ${(failureRate('browse') * 100).toFixed(2)}% | ${(endpointMetric('http_req_duration', 'browse')['p(95)'] || 0).toFixed(2)} ms |
+| Search products | ${searchRequests} | ${(failureRate('search') * 100).toFixed(2)}% | ${(endpointMetric('http_req_duration', 'search')['p(95)'] || 0).toFixed(2)} ms |
 
 ## Interpretation
 
