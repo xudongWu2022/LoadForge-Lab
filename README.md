@@ -45,7 +45,17 @@ Before every new target or environment, use the small `smoke` profile. It ramps 
 docker compose --profile load-test run --rm -e LOAD_PROFILE=smoke k6
 ```
 
-The test waits up to 24 seconds for the target to pass its preflight check before it starts. If the target remains unavailable or returns an error, k6 stops instead of applying traffic. Supported values for `LOAD_PROFILE` are `smoke` and `moderate`; an unsupported value fails immediately.
+The test waits up to 24 seconds for the target to pass its preflight check before it starts. If the target remains unavailable or returns an error, k6 stops instead of applying traffic. Supported values for `LOAD_PROFILE` are `smoke`, `moderate`, and `stress`; an unsupported value fails immediately.
+
+### Apply higher pressure deliberately
+
+For an owned local target that has already passed a smoke and moderate run, use the `stress` profile:
+
+```powershell
+docker compose --profile load-test run --rm -e LOAD_PROFILE=stress k6
+```
+
+It ramps to 200 VUs, then holds 125 VUs for three minutes before ramping down. Observe host CPU, memory, and container health while it runs; do not use this profile outside infrastructure you own or are explicitly authorized to test.
 
 ## Reports
 

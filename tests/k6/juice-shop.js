@@ -18,10 +18,16 @@ const profiles = {
     { duration: '60s', target: 25 },
     { duration: '20s', target: 0 },
   ],
+  stress: [
+    { duration: '30s', target: 50 },
+    { duration: '60s', target: 200 },
+    { duration: '3m', target: 125 },
+    { duration: '40s', target: 0 },
+  ],
 };
 
 if (!profiles[profileName]) {
-  throw new Error(`Unknown LOAD_PROFILE "${profileName}". Choose smoke or moderate.`);
+  throw new Error(`Unknown LOAD_PROFILE "${profileName}". Choose smoke, moderate, or stress.`);
 }
 
 export const options = {
