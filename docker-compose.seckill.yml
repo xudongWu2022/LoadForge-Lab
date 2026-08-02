@@ -56,3 +56,4 @@ services:
 networks:
   seckill_default:
     external: true
+    name: sekill_default
