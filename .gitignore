@@ -1,3 +1,5 @@
 reports/*.json
 reports/*.md
 !reports/.gitkeep
+reports/*
+!reports/.gitkeep

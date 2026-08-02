@@ -7,7 +7,7 @@ import { Counter } from 'k6/metrics';
 const baseUrl = (__ENV.BASE_URL || 'http://host.docker.internal:18080').replace(/\/$/, '');
 const jwtSecret = __ENV.JWT_SECRET;
 const profileName = __ENV.SECKILL_PROFILE || 'burst';
-const runId = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+const runId = __ENV.K6_RUN_ID || `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 const acceptedOrders = new Counter('seckill_accepted_orders');
 const soldOutOrders = new Counter('seckill_sold_out_orders');
 const throttledOrders = new Counter('seckill_throttled_orders');
@@ -97,8 +97,10 @@ export function setup() {
   const stock = JSON.parse(product.body).stock;
   if (stock < minimumStock) fail(`Database stock is ${stock}; this profile requires at least ${minimumStock}.`);
 
-  const preload = http.post(`${baseUrl}/api/product/preload`, null, { headers: adminHeaders, tags: { action: 'preload' } });
-  if (preload.status !== 200) fail(`Redis preload failed with ${preload.status}.`);
+  if (__ENV.SKIP_PRELOAD !== 'true') {
+    const preload = http.post(`${baseUrl}/api/product/preload`, null, { headers: adminHeaders, tags: { action: 'preload' } });
+    if (preload.status !== 200) fail(`Redis preload failed with ${preload.status}.`);
+  }
 }
 
 export default function () {
@@ -152,5 +154,6 @@ export function handleSummary(data) {
 
 The matching CSV monitor output is required to judge Kafka lag and end-to-end sustainability.
 `;
-  return { '/reports/seckill-latest-summary.md': markdown, stdout: 'Seckill load test finished. See reports/seckill-latest-summary.md.\n' };
+  const summaryFile = __ENV.K6_SUMMARY_FILE || 'seckill-latest-summary.md';
+  return { [`/reports/${summaryFile}`]: markdown, stdout: `Seckill load test finished. See reports/${summaryFile}.\n` };
 }

@@ -49,6 +49,30 @@ pwsh tools/monitor-seckill.ps1 -DurationSeconds 330
 
 Then run the k6 adapter with `SECKILL_PROFILE=throughput`, `JWT_SECRET`, and an authorized `BASE_URL`. A result is sustainable only if consumer lag stops growing and returns to zero after traffic stops.
 
+## Prometheus, Grafana, and distributed k6
+
+The SecKill Compose stack now exposes Prometheus at `http://localhost:9090` and Grafana at `http://localhost:3001` (the default login is `admin` / `admin-change-me`; change it in `.env`). The provisioned **Seckill Load Test Overview** dashboard correlates:
+
+- gateway request rate and P95 latency;
+- JVM heap use and GC pause time for every Spring service;
+- Kafka consumer-group lag;
+- MySQL query rate and connected sessions.
+
+This makes a P95 regression diagnosable: rising GC pause points to heap/allocation pressure; rising lag with low database query rate points to consumers; saturated MySQL connections or reduced query rate points to the database.
+
+For a local multi-runner k6 test, first do the normal preflight/preload once, then launch three non-overlapping execution segments. Each writes its own raw JSON file, so runners do not overwrite each other's data:
+
+```powershell
+# From SecKill-Project: start the target and observability stack.
+docker compose up -d
+
+# From LoadForge-Lab: run one normal smoke/preload pass, then the three segments.
+docker run --rm --network sekill_default -e BASE_URL=http://gateway-service:8080 -e JWT_SECRET=$env:JWT_SECRET -e SECKILL_PROFILE=smoke -v "${PWD}/tests/k6:/scripts:ro" grafana/k6:0.54.0 run /scripts/seckill.js
+docker compose -f docker-compose.seckill.yml --profile distributed-seckill up --abort-on-container-exit
+```
+
+Set `JWT_SECRET` in the shell running the second command too (or put it in a local uncommitted `.env`). The built-in three-runner setup removes the single k6 process as the first bottleneck; for larger tests, run the same execution segments on separate authorized worker hosts or Kubernetes nodes.
+
 ### Start with a smoke test
 
 Before every new target or environment, use the small `smoke` profile. It ramps to two VUs, holds briefly, and produces the same report artifacts:
