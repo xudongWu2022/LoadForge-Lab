@@ -23,13 +23,19 @@ const profiles = {
     { duration: '30s', target: 200 },
     { duration: '30s', target: 0 },
   ],
+  stress: [
+    { duration: '20s', target: 75 },
+    { duration: '30s', target: 300 },
+    { duration: '60s', target: 300 },
+    { duration: '20s', target: 0 },
+  ],
 };
 
 if (!jwtSecret) {
   throw new Error('JWT_SECRET is required for the seckill test.');
 }
 if (!profiles[profileName]) {
-  throw new Error(`Unknown SECKILL_PROFILE "${profileName}". Choose smoke or burst.`);
+  throw new Error(`Unknown SECKILL_PROFILE "${profileName}". Choose smoke, burst, or stress.`);
 }
 
 export const options = {
@@ -98,7 +104,7 @@ export function handleSummary(data) {
 
 - Target: ${baseUrl}
 - Profile: ${profileName}
-- Peak VUs: ${profileName === 'burst' ? 200 : 2}
+- Peak VUs: ${{ smoke: 2, burst: 200, stress: 300 }[profileName]}
 
 ## Results
 
