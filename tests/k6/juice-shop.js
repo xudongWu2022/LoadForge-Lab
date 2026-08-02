@@ -32,8 +32,10 @@ export const options = {
     },
   },
   thresholds: {
-    http_req_failed: ['rate<0.02'],
-    http_req_duration: ['p(95)<1000'],
+    'http_req_failed{action:browse}': ['rate<0.02'],
+    'http_req_failed{action:search}': ['rate<0.02'],
+    'http_req_duration{action:browse}': ['p(95)<1000'],
+    'http_req_duration{action:search}': ['p(95)<1000'],
   },
 };
 
@@ -66,6 +68,7 @@ export default function () {
 
 export function handleSummary(data) {
   const metric = (name) => data.metrics[name]?.values || {};
+  const endpointMetric = (name, action) => metric(`${name}{action:${action}}`);
   const markdown = `# LoadForge-Lab Report
 
 ## Scenario
@@ -83,9 +86,16 @@ export function handleSummary(data) {
 | Checks passed | ${metric('checks').passes || 0} |
 | Checks failed | ${metric('checks').fails || 0} |
 
+## Endpoint performance
+
+| Endpoint | Requests | Failed request rate | P95 latency |
+| --- | ---: | ---: | ---: |
+| Browse products | ${endpointMetric('http_reqs', 'browse').count || 0} | ${((endpointMetric('http_req_failed', 'browse').rate || 0) * 100).toFixed(2)}% | ${(endpointMetric('http_req_duration', 'browse')['p(95)'] || 0).toFixed(2)} ms |
+| Search products | ${endpointMetric('http_reqs', 'search').count || 0} | ${((endpointMetric('http_req_failed', 'search').rate || 0) * 100).toFixed(2)}% | ${(endpointMetric('http_req_duration', 'search')['p(95)'] || 0).toFixed(2)} ms |
+
 ## Interpretation
 
-Compare the P95 latency and failure rate with the configured thresholds. Treat this result as valid only when the target was owned or explicitly authorized.
+Each browsing and search endpoint has an independent threshold: less than 2% failures and P95 below 1,000 ms. Treat this result as valid only when the target was owned or explicitly authorized.
 `;
   return {
     '/reports/latest-summary.md': markdown,
