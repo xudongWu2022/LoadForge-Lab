@@ -37,6 +37,18 @@ Increase these values only after observing CPU, memory, latency, and error rates
 docker compose --profile load-test run --rm -e BASE_URL=http://your-authorized-target k6
 ```
 
+## Seckill throughput test
+
+The `tests/k6/seckill.js` adapter tests the self-hosted SecKill project. Its `throughput` profile uses a fixed arrival rate (500, then 1,000, then 1,500 orders/second) rather than a variable VU-driven rate. It refuses to run until the product database holds at least 250,000 units, then preloads Redis before testing.
+
+Run the monitor before starting k6 so Kafka lag and order growth are recorded every five seconds:
+
+```powershell
+pwsh tools/monitor-seckill.ps1 -DurationSeconds 330
+```
+
+Then run the k6 adapter with `SECKILL_PROFILE=throughput`, `JWT_SECRET`, and an authorized `BASE_URL`. A result is sustainable only if consumer lag stops growing and returns to zero after traffic stops.
+
 ### Start with a smoke test
 
 Before every new target or environment, use the small `smoke` profile. It ramps to two VUs, holds briefly, and produces the same report artifacts:
