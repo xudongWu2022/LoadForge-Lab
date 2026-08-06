@@ -60,7 +60,7 @@ The SecKill Compose stack now exposes Prometheus at `http://localhost:9090` and 
 
 This makes a P95 regression diagnosable: rising GC pause points to heap/allocation pressure; rising lag with low database query rate points to consumers; saturated MySQL connections or reduced query rate points to the database.
 
-For a local multi-runner k6 test, first do the normal preflight/preload once, then launch three non-overlapping execution segments. Each writes its own raw JSON file, so runners do not overwrite each other's data:
+For a local multi-runner k6 test, first do the normal preflight/preload once, then launch three non-overlapping execution segments. Each writes its own aggregate summary JSON and Markdown report, rather than multi-gigabyte per-request JSON streams, so the generator's disk I/O does not distort the target measurement:
 
 ```powershell
 # From SecKill-Project: start the target and observability stack.

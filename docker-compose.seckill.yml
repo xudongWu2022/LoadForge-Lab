@@ -17,7 +17,7 @@ services:
     volumes:
       - ./tests/k6:/scripts:ro
       - ./reports:/reports
-    command: ["run", "--execution-segment", "0:1/3", "--execution-segment-sequence", "0,1/3,2/3,1", "--out", "json=/reports/seckill-runner-1.json", "/scripts/seckill.js"]
+    command: ["run", "--execution-segment", "0:1/3", "--execution-segment-sequence", "0,1/3,2/3,1", "--summary-export=/reports/seckill-runner-1-summary.json", "/scripts/seckill.js"]
 
   k6-runner-2:
     image: grafana/k6:0.54.0
@@ -34,7 +34,7 @@ services:
     volumes:
       - ./tests/k6:/scripts:ro
       - ./reports:/reports
-    command: ["run", "--execution-segment", "1/3:2/3", "--execution-segment-sequence", "0,1/3,2/3,1", "--out", "json=/reports/seckill-runner-2.json", "/scripts/seckill.js"]
+    command: ["run", "--execution-segment", "1/3:2/3", "--execution-segment-sequence", "0,1/3,2/3,1", "--summary-export=/reports/seckill-runner-2-summary.json", "/scripts/seckill.js"]
 
   k6-runner-3:
     image: grafana/k6:0.54.0
@@ -51,7 +51,7 @@ services:
     volumes:
       - ./tests/k6:/scripts:ro
       - ./reports:/reports
-    command: ["run", "--execution-segment", "2/3:1", "--execution-segment-sequence", "0,1/3,2/3,1", "--out", "json=/reports/seckill-runner-3.json", "/scripts/seckill.js"]
+    command: ["run", "--execution-segment", "2/3:1", "--execution-segment-sequence", "0,1/3,2/3,1", "--summary-export=/reports/seckill-runner-3-summary.json", "/scripts/seckill.js"]
 
 networks:
   seckill_default:
