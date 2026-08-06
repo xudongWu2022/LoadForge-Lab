@@ -9,6 +9,7 @@ const jwtSecret = __ENV.JWT_SECRET;
 const profileName = __ENV.SECKILL_PROFILE || 'burst';
 const runId = __ENV.K6_RUN_ID || `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 const acceptedOrders = new Counter('seckill_accepted_orders');
+const duplicateOrders = new Counter('seckill_duplicate_orders');
 const soldOutOrders = new Counter('seckill_sold_out_orders');
 const throttledOrders = new Counter('seckill_throttled_orders');
 
@@ -58,6 +59,26 @@ const profiles = {
         { duration: '120s', target: 1000 },
         { duration: '120s', target: 1500 },
         { duration: '30s', target: 0 },
+      ],
+    },
+  },
+  three_k_burst: {
+    label: '3,000 req/s stock-exhaustion burst',
+    minimumStock: 100000,
+    minimumAcceptedOrders: 90000,
+    scenario: {
+      executor: 'ramping-arrival-rate',
+      startRate: 100,
+      timeUnit: '1s',
+      // At 3,000 req/s and ~2s tail latency, the three execution segments
+      // need up to ~2,000 VUs each to avoid dropped iterations.
+      preAllocatedVUs: 3000,
+      maxVUs: 6000,
+      stages: [
+        { duration: '12s', target: 1000 },
+        { duration: '12s', target: 3000 },
+        { duration: '20s', target: 3000 },
+        { duration: '12s', target: 0 },
       ],
     },
   },
@@ -114,20 +135,21 @@ export default function () {
         'Content-Type': 'application/json',
         'Idempotency-Key': `${runId}-${__VU}-${__ITER}`,
       },
-      responseCallback: http.expectedStatuses(200, 400, 429),
+      responseCallback: http.expectedStatuses(200, 202, 400, 429),
       tags: { action: 'seckill' },
     },
   );
 
   if (response.status === 200) acceptedOrders.add(1);
+  if (response.status === 202) duplicateOrders.add(1);
   if (response.status === 400) soldOutOrders.add(1);
   if (response.status === 429) throttledOrders.add(1);
 
   check(response, {
-    'order accepted, sold out, or rate limited': (result) => [200, 400, 429].includes(result.status),
+    'order accepted, duplicate, sold out, or rate limited': (result) => [200, 202, 400, 429].includes(result.status),
     'no server error': (result) => result.status < 500,
   });
-  sleep(profileName === 'throughput' ? 0.05 : Math.random() * 0.4 + 0.1);
+  sleep(['throughput', 'three_k_burst'].includes(profileName) ? 0.05 : Math.random() * 0.4 + 0.1);
 }
 
 export function handleSummary(data) {
@@ -147,6 +169,7 @@ export function handleSummary(data) {
 | --- | ---: |
 | Requests | ${metric('http_reqs').count || 0} |
 | Accepted orders | ${metric('seckill_accepted_orders').count || 0} |
+| Idempotent duplicate responses | ${metric('seckill_duplicate_orders').count || 0} |
 | Sold out responses | ${metric('seckill_sold_out_orders').count || 0} |
 | Rate-limited responses | ${metric('seckill_throttled_orders').count || 0} |
 | Failed request rate | ${((metric('http_req_failed').rate || 0) * 100).toFixed(2)}% |

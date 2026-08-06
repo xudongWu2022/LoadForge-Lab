@@ -71,7 +71,9 @@ docker run --rm --network sekill_default -e BASE_URL=http://gateway-service:8080
 docker compose -f docker-compose.seckill.yml --profile distributed-seckill up --abort-on-container-exit
 ```
 
-Set `JWT_SECRET` in the shell running the second command too (or put it in a local uncommitted `.env`). The built-in three-runner setup removes the single k6 process as the first bottleneck; for larger tests, run the same execution segments on separate authorized worker hosts or Kubernetes nodes.
+Set `JWT_SECRET` and a new `LOAD_RUN_ID` in the shell running the second command too (or put them in a local uncommitted `.env`). `LOAD_RUN_ID` must change on every run, otherwise Redis correctly treats reused idempotency keys as duplicate requests. The built-in three-runner setup removes the single k6 process as the first bottleneck; for larger tests, run the same execution segments on separate authorized worker hosts or Kubernetes nodes.
+
+The distributed Compose profile is configured for `three_k_burst`: a one-minute curve that reaches **3,000 requests/second**. It requires exactly 100,000 or more units of stock and deliberately reaches sold-out near the end; sold-out responses are expected, whereas 5xx responses are not.
 
 ### Start with a smoke test
 

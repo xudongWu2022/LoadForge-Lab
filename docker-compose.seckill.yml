@@ -9,9 +9,9 @@ services:
     environment:
       BASE_URL: http://gateway-service:8080
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env or the calling shell}
-      SECKILL_PROFILE: throughput
+      SECKILL_PROFILE: three_k_burst
       SKIP_PRELOAD: "true"
-      K6_RUN_ID: distributed-1
+      K6_RUN_ID: ${LOAD_RUN_ID:?Set a unique LOAD_RUN_ID for every run}-1
       MINIMUM_ACCEPTED_ORDERS: "0"
       K6_SUMMARY_FILE: seckill-runner-1-summary.md
     volumes:
@@ -26,9 +26,9 @@ services:
     environment:
       BASE_URL: http://gateway-service:8080
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env or the calling shell}
-      SECKILL_PROFILE: throughput
+      SECKILL_PROFILE: three_k_burst
       SKIP_PRELOAD: "true"
-      K6_RUN_ID: distributed-2
+      K6_RUN_ID: ${LOAD_RUN_ID:?Set a unique LOAD_RUN_ID for every run}-2
       MINIMUM_ACCEPTED_ORDERS: "0"
       K6_SUMMARY_FILE: seckill-runner-2-summary.md
     volumes:
@@ -43,9 +43,9 @@ services:
     environment:
       BASE_URL: http://gateway-service:8080
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env or the calling shell}
-      SECKILL_PROFILE: throughput
+      SECKILL_PROFILE: three_k_burst
       SKIP_PRELOAD: "true"
-      K6_RUN_ID: distributed-3
+      K6_RUN_ID: ${LOAD_RUN_ID:?Set a unique LOAD_RUN_ID for every run}-3
       MINIMUM_ACCEPTED_ORDERS: "0"
       K6_SUMMARY_FILE: seckill-runner-3-summary.md
     volumes:
